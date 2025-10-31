@@ -1,7 +1,7 @@
 const express = require('express')
 const cors = require('cors')
 const { createClient } = require('@supabase/supabase-js')
-const AnthropicSDK = require('@anthropic-ai/sdk')
+const Anthropic = require('@anthropic-ai/sdk').default
 
 const app = express()
 app.use(cors())
@@ -12,13 +12,42 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
-const anthropic = new AnthropicSDK.Anthropic({
+const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 })
 
 // Health check
 app.get('/', (req, res) => {
   res.json({ status: 'ok', service: 'Content Generation Service' })
+})
+
+// Test Anthropic connection
+app.get('/test-anthropic', async (req, res) => {
+  try {
+    console.log('🧪 Testing Anthropic API connection...')
+    console.log('API Key exists:', !!process.env.ANTHROPIC_API_KEY)
+    console.log('API Key starts with:', process.env.ANTHROPIC_API_KEY?.substring(0, 15))
+    
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 100,
+      messages: [{ role: 'user', content: 'Say "test successful"' }]
+    })
+    
+    console.log('✅ Anthropic API test successful!')
+    res.json({ 
+      success: true, 
+      message: 'Anthropic API is working',
+      response: response.content[0].text
+    })
+  } catch (error) {
+    console.error('❌ Anthropic API test failed:', error)
+    res.json({ 
+      success: false, 
+      error: error.message,
+      stack: error.stack
+    })
+  }
 })
 
 // Main research endpoint
@@ -229,12 +258,16 @@ Return ONLY valid JSON:
 {"content": "the full 500 word text", "wordCount": 500}`
   }
 
+  console.log(`📡 Calling Anthropic API for ${section}...`)
+  
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: maxTokens,
     temperature: 0.7,
     messages: [{ role: 'user', content: prompts[section] }]
   })
+
+  console.log(`✅ Anthropic API responded for ${section}`)
 
   const contentText = response.content[0].type === 'text' ? response.content[0].text : ''
   const jsonMatch = contentText.match(/\{[\s\S]*\}/)
@@ -264,12 +297,16 @@ Return ONLY valid JSON:
 {"faqs": [{"question": "...", "answer": "..."}], "cta": "cta text", "wordCount": 800}`
   }
 
+  console.log(`📡 Calling Anthropic API for ${neighborhood} - ${section}...`)
+
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: maxTokens,
     temperature: 0.7,
     messages: [{ role: 'user', content: prompts[section] }]
   })
+
+  console.log(`✅ Anthropic API responded for ${neighborhood} - ${section}`)
 
   const contentText = response.content[0].type === 'text' ? response.content[0].text : ''
   const jsonMatch = contentText.match(/\{[\s\S]*\}/)
